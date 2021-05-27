@@ -367,6 +367,14 @@ module.exports = function (webpackEnv) {
           // match the requirements. When no loader matches it will fall
           // back to the "file" loader at the end of the loader list.
           oneOf: [
+            {
+              test: /\.(md|glsl)$/,
+              use: [
+                {
+                  loader: require.resolve('raw-loader'),
+                },
+              ],
+            },
             // TODO: Merge this config once `image/avif` is in the mime-db
             // https://github.com/jshttp/mime-db
             {
