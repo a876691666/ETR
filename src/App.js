@@ -1,13 +1,24 @@
 import React from "react";
 import * as THREE from "three";
+import * as d3 from "d3";
+import _ from "lodash";
 import "./App.css";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import data from "./systemPosition.json";
 import jump from "./systemJump.json";
+import regions from "./regions.json";
+import parent from "./systemParent.json";
 import vertex from "./vertex.glsl";
 import fragment from "./fragment.glsl";
 
+const regionScale = d3
+  .scaleQuantize()
+  .range(regions.map((_, index) => index / (regions.length - 1)))
+  .domain(regions);
+
 const scale = 0.0001;
+const jumpIds = _.flattenDeep(jump);
+const ids = _.intersection(Object.keys(data), jumpIds);
 
 class App extends React.Component {
   constructor(props) {
@@ -34,11 +45,14 @@ class App extends React.Component {
     const control = new OrbitControls(camera, renderer.domElement);
 
     {
-      const ids = Object.keys(data);
       const position = [];
-      ids.forEach((id) => {
+      const colors = [];
+      ids.forEach((id, index) => {
         const [x, y, z] = data[id];
-        position.push(x * scale, y * scale, z * scale);
+        position.push(x * scale, y * scale, -z * scale);
+        new THREE.Color(
+          d3.interpolateRainbow(regionScale(parent[id][1]))
+        ).toArray(colors, index * 3);
       });
 
       const geometry = new THREE.BufferGeometry();
@@ -47,10 +61,12 @@ class App extends React.Component {
         new THREE.Float32BufferAttribute(position, 3)
       );
 
+      geometry.setAttribute(
+        "color",
+        new THREE.Float32BufferAttribute(colors, 3)
+      );
+
       const material = new THREE.ShaderMaterial({
-        uniforms: {
-          color: { value: new THREE.Color(0xffffff) },
-        },
         vertexShader: vertex,
         fragmentShader: fragment,
       });
@@ -60,24 +76,20 @@ class App extends React.Component {
     }
     {
       const material = new THREE.LineBasicMaterial({
-        color: 0x0000ff,
+        color: 0xffffff,
       });
 
       const points = [];
-      console.log(jump);
       jump.forEach(([source, target]) => {
         {
           const [x, y, z] = data[target];
-          points.push(new THREE.Vector3(x * scale, y * scale, z * scale));
+          points.push(new THREE.Vector3(x * scale, y * scale, -z * scale));
         }
         {
           const [x, y, z] = data[source];
-          points.push(new THREE.Vector3(x * scale, y * scale, z * scale));
+          points.push(new THREE.Vector3(x * scale, y * scale, -z * scale));
         }
       });
-      points.push(new THREE.Vector3(-10, 0, 0));
-      points.push(new THREE.Vector3(0, 10, 0));
-      points.push(new THREE.Vector3(10, 0, 0));
 
       const geometry = new THREE.BufferGeometry().setFromPoints(points);
 
@@ -85,7 +97,8 @@ class App extends React.Component {
       scene.add(line);
     }
 
-    camera.position.z = 5;
+    camera.position.y = 40;
+    camera.position.z = 70;
 
     this.box.appendChild(renderer.domElement);
 
